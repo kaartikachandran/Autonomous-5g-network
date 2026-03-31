@@ -1,0 +1,87 @@
+#include <WiFi.h>
+
+// WiFi credentials
+const char* ssid = "Shrivai";
+const char* password = "Vaishu@2007";
+
+// ✅ UPDATED Base Station IP
+const char* baseStationIP = "10.231.241.188";
+const uint16_t baseStationPort = 1234;
+
+// Packet variables
+int nodeID = 1;
+int packetID = 0;
+
+// WiFi client
+WiFiClient client;
+
+void connectToWiFi() {
+  Serial.print("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\n✅ WiFi Connected!");
+  Serial.print("Node IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+bool connectToBaseStation() {
+  Serial.print("Connecting to Base Station at ");
+  Serial.print(baseStationIP);
+  Serial.print(":");
+  Serial.println(baseStationPort);
+
+  if (client.connect(baseStationIP, baseStationPort)) {
+    Serial.println("🔥 Connected to Base Station!");
+    return true;
+  } else {
+    Serial.println("❌ TCP Connection Failed! Retrying...");
+    return false;
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  connectToWiFi();
+}
+
+void loop() {
+
+  // Ensure connection
+  if (!client.connected()) {
+    while (!connectToBaseStation()) {
+      delay(2000);
+    }
+  }
+
+  // Send packet
+  packetID++;
+  unsigned long sendTime = millis();
+
+  String msg = "NODE:" + String(nodeID) +
+               ",PKT:" + String(packetID) +
+               ",TIME:" + String(sendTime);
+
+  client.println(msg);
+  Serial.println("Sent: " + msg);
+
+  // Wait for ACK
+  unsigned long startWait = millis();
+  while (!client.available() && millis() - startWait < 1000) {
+    // wait
+  }
+
+  if (client.available()) {
+    String ack = client.readStringUntil('\n');
+    ack.trim();
+    Serial.println("Received: " + ack);
+  } else {
+    Serial.println("⚠️ No ACK received");
+  }
+
+  delay(1000); // 1 sec interval
+}
